@@ -129,22 +129,20 @@ export async function hkdf(
 	expandedLength: number,
 	info: { salt?: Buffer; info?: string }
 ): Promise<Buffer> {
-	// Ensure we have a Uint8Array for the key material
-	const inputKeyMaterial = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer)
-
-	// Set default values if not provided
+	// Create ArrayBuffer-compatible Uint8Arrays for Web Crypto API
+	const inputKeyMaterial = new Uint8Array(buffer instanceof Uint8Array ? buffer : buffer)
 	const salt = info.salt ? new Uint8Array(info.salt) : new Uint8Array(0)
 	const infoBytes = info.info ? new TextEncoder().encode(info.info) : new Uint8Array(0)
 
-	// Import the input key material
-	const importedKey = await subtle.importKey('raw', inputKeyMaterial, { name: 'HKDF' }, false, ['deriveBits'])
+	// Import the input key material with type assertion for Web Crypto compatibility
+	const importedKey = await subtle.importKey('raw', inputKeyMaterial as BufferSource, { name: 'HKDF' }, false, ['deriveBits'])
 
-	// Derive bits using HKDF
+	// Derive bits using HKDF with type assertion for Web Crypto compatibility
 	const derivedBits = await subtle.deriveBits(
 		{
 			name: 'HKDF',
 			hash: 'SHA-256',
-			salt: salt,
+			salt: salt as BufferSource,
 			info: infoBytes
 		},
 		importedKey,
@@ -158,17 +156,17 @@ export async function derivePairingCodeKey(pairingCode: string, salt: Buffer): P
 	// Convert inputs to formats Web Crypto API can work with
 	const encoder = new TextEncoder()
 	const pairingCodeBuffer = encoder.encode(pairingCode)
-	const saltBuffer = salt instanceof Uint8Array ? salt : new Uint8Array(salt)
+	const saltBuffer = new Uint8Array(salt)
 
 	// Import the pairing code as key material
 	const keyMaterial = await subtle.importKey('raw', pairingCodeBuffer, { name: 'PBKDF2' }, false, ['deriveBits'])
 
-	// Derive bits using PBKDF2 with the same parameters
+	// Derive bits using PBKDF2 with the same parameters and type assertion
 	// 2 << 16 = 131,072 iterations
 	const derivedBits = await subtle.deriveBits(
 		{
 			name: 'PBKDF2',
-			salt: saltBuffer,
+			salt: saltBuffer as BufferSource,
 			iterations: 2 << 16,
 			hash: 'SHA-256'
 		},
